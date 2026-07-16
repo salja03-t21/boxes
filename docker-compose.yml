@@ -10,7 +10,7 @@ services:
       - "[::]:8000"
       - -w
       - "2"
-      - scripts.boxesserver
+      - boxes.scripts.boxesserver
     environment:
       STATIC_URL: /static
     volumes:

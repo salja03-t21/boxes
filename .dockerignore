@@ -1,0 +1,15 @@
+.git
+.github
+.beads
+.codex
+.venv
+env
+venv
+build
+dist
+*.egg-info
+*.pyc
+__pycache__
+.pytest_cache
+.mypy_cache
+docs/plans
