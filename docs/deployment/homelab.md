@@ -18,7 +18,7 @@ Cloudflare Tunnel.
 | Homelab stack file | `docker_swarm/boxes/compose.yml` |
 | Swarm manager | `james@10.0.5.12` (`open-brain`) |
 | Image | `ghcr.io/salja03-t21/boxes` |
-| Stack / service | `boxes` / `boxes_web` |
+| Stack / Compose service / Swarm service | `boxes` / `boxes` / `boxes_boxes` |
 | Shared ingress network | `lan-ingress` |
 | Internal DNS name | `boxes.ciothoughts.net` |
 | Internal DNS resolver | OPNsense at `10.0.0.1` |
@@ -72,6 +72,14 @@ Swarm node. Pull requests build without pushing. A merge to `master`, a manual
 dispatch, or a release tag publishes a signed image to GHCR. Every published
 commit receives a `sha-<short-sha>` tag.
 
+The development Mac is ARM, and this project's scientific/documentation
+dependency set makes a local QEMU amd64 build exceptionally slow. Use native
+ARM images for quick local container checks. Use GitHub Actions for normal
+amd64 releases; when pre-release target validation is required, point Docker
+at `ssh://james@10.0.5.12` and smoke-test on the actual x86 engine as shown in
+the implementation plan. The `.dockerignore` excludes local Codex and Beads
+state so review metadata does not invalidate application image layers.
+
 Treat the tag as a lookup aid, not a deployment pin. Record the manifest
 digest produced by GitHub Actions and set the homelab stack image to:
 
@@ -90,7 +98,7 @@ The request path is:
 
 ```text
 LAN client -> OPNsense DNS -> 10.0.5.12:80 -> Open Brain Traefik
-           -> lan-ingress overlay -> boxes_web:8000
+           -> lan-ingress overlay -> boxes_boxes:8000
 ```
 
 The Boxes stack publishes no host port. Swarm labels select

@@ -167,27 +167,32 @@ PYTHONPATH=. .venv/bin/pytest -q
 Expected: focused test PASS; full suite approximately `193 passed, 9 skipped`
 plus the three new passing contract tests.
 
-**Step 5: Build and smoke-test the amd64 image**
+**Step 5: Build and smoke-test the image on the amd64 Swarm engine**
 
 Run:
 
 ```bash
-docker buildx build --platform linux/amd64 --load \
+DOCKER_HOST=ssh://james@10.0.5.12 docker build --platform linux/amd64 \
   -f scripts/Dockerfile -t boxes:homelab-test .
-docker run --rm -d --name boxes-homelab-test -p 127.0.0.1:4455:8000 \
-  boxes:homelab-test
-curl --fail --retry 20 --retry-all-errors --retry-delay 1 \
-  http://127.0.0.1:4455/ >/tmp/boxes-index.html
-curl --fail --get 'http://127.0.0.1:4455/ABox' \
-  --data-urlencode 'x=100' --data-urlencode 'y=100' \
-  --data-urlencode 'h=100' --data-urlencode 'render=1' \
-  -o /tmp/boxes-smoke.svg
-rg '<svg' /tmp/boxes-smoke.svg
-docker rm -f boxes-homelab-test
+DOCKER_HOST=ssh://james@10.0.5.12 docker run --rm -d \
+  --name boxes-homelab-test --platform linux/amd64 \
+  -p 127.0.0.1:4455:8000 boxes:homelab-test
+ssh james@10.0.5.12 \
+  "curl --fail --retry 20 --retry-all-errors --retry-delay 1 \
+  http://127.0.0.1:4455/ -o /dev/null"
+ssh james@10.0.5.12 \
+  "curl --fail --get http://127.0.0.1:4455/ABox \
+  --data-urlencode x=100 --data-urlencode y=100 \
+  --data-urlencode h=100 --data-urlencode render=1" | rg '<svg'
+DOCKER_HOST=ssh://james@10.0.5.12 docker image inspect \
+  boxes:homelab-test --format '{{.Architecture}} {{.Config.User}}'
+DOCKER_HOST=ssh://james@10.0.5.12 docker rm -f boxes-homelab-test
 ```
 
 Expected: both HTTP calls succeed, the generated file contains `<svg`, and
-the container is removed.
+the image reports `amd64 boxes`, and the container is removed. Building on the
+real x86 engine avoids the extreme QEMU overhead of cross-building this
+dependency-heavy image on an ARM development Mac.
 
 **Step 6: Commit**
 

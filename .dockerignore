@@ -1,5 +1,7 @@
 .git
 .github
+.beads
+.codex
 .venv
 env
 venv
