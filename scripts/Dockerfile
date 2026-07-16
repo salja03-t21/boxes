@@ -1,23 +1,31 @@
 FROM python:3.12-slim AS builder
 
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
-RUN python3 -m venv env
-RUN /app/env/bin/pip install gunicorn
+RUN python -m venv /app/env \
+    && /app/env/bin/pip install --upgrade pip gunicorn
 
-ADD https://github.com/florianfesti/boxes.git /app
+COPY . /app
 RUN /app/env/bin/pip install .
-RUN mv scripts/boxesserver scripts/boxesserver.py
 
-# ---
+FROM python:3.12-slim AS runtime
 
-FROM python:3.12-slim
-
-RUN apt update && \
-  apt install -y pstoedit --no-install-recommends && \
-  apt clean
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pstoedit \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 boxes
 
 WORKDIR /app
 COPY --from=builder /app /app
 
-CMD ["/app/env/bin/gunicorn",  "-b",  "[::]:8000", "-w", "4", "scripts.boxesserver"]
+ENV PATH=/app/env/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    STATIC_URL=/static
+
+USER boxes
+EXPOSE 8000
+
+CMD ["/app/env/bin/gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--access-logfile", "-", "--error-logfile", "-", "boxes.scripts.boxesserver"]
