@@ -83,7 +83,7 @@ def test_container_runs_as_non_root() -> None:
 
 def test_container_exposes_web_server() -> None:
     assert "EXPOSE 8000" in DOCKERFILE
-    assert '"scripts.boxesserver"' in DOCKERFILE
+    assert '"boxes.scripts.boxesserver"' in DOCKERFILE
 ```
 
 **Step 2: Run the tests and confirm the intended failure**
@@ -131,7 +131,7 @@ ENV PATH=/app/env/bin:$PATH \
 USER boxes
 EXPOSE 8000
 
-CMD ["/app/env/bin/gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--access-logfile", "-", "--error-logfile", "-", "scripts.boxesserver"]
+CMD ["/app/env/bin/gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--access-logfile", "-", "--error-logfile", "-", "boxes.scripts.boxesserver"]
 ```
 
 Create `.dockerignore` containing at least:
@@ -176,7 +176,8 @@ docker buildx build --platform linux/amd64 --load \
   -f scripts/Dockerfile -t boxes:homelab-test .
 docker run --rm -d --name boxes-homelab-test -p 127.0.0.1:4455:8000 \
   boxes:homelab-test
-curl --fail --retry 20 --retry-delay 1 http://127.0.0.1:4455/ >/tmp/boxes-index.html
+curl --fail --retry 20 --retry-all-errors --retry-delay 1 \
+  http://127.0.0.1:4455/ >/tmp/boxes-index.html
 curl --fail --get 'http://127.0.0.1:4455/ABox' \
   --data-urlencode 'x=100' --data-urlencode 'y=100' \
   --data-urlencode 'h=100' --data-urlencode 'render=1' \

@@ -60,3 +60,9 @@ Boxes.py comes with Sphinx based documentation for usage, installation
 and development.
 
 The rendered version can be viewed at <https://florianfesti.github.io/boxes/html/index.html>.
+
+Maintained fork and homelab deployment
+--------------------------------------
+
+The maintained fork's image release, LAN-only deployment, and enhancement
+workflow are documented in `docs/deployment/homelab.md <docs/deployment/homelab.md>`_.
