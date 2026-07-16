@@ -27,5 +27,6 @@ def test_container_exposes_web_server() -> None:
 
 def test_container_workflow_publishes_immutable_amd64_sha_tag() -> None:
     assert "platforms: linux/amd64" in WORKFLOW
-    assert "type=sha,prefix=sha-" in WORKFLOW
-    assert "context: git" in WORKFLOW
+    assert "docker/metadata-action@" not in WORKFLOW
+    assert "sha-${GITHUB_SHA::7}" in WORKFLOW
+    assert 'GITHUB_REF_TYPE' in WORKFLOW
