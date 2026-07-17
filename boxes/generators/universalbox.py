@@ -37,6 +37,62 @@ class UniversalBox(_TopEdge):
             default="finger joints",
             choices=("finger joints", "finger holes"),
             help="connections used for the vertical edges")
+        self.argparser.add_argument(
+            "--cover_mode", action="store", type=str, default="none",
+            choices=("none", "blank", "text"),
+            help="fixed partial top cover")
+        self.argparser.add_argument(
+            "--cover_position", action="store", type=str, default="back",
+            choices=("front", "back"),
+            help="end of the box covered by the partial top")
+        self.argparser.add_argument(
+            "--cover_depth_mode", action="store", type=str, default="percent",
+            choices=("percent", "mm"),
+            help="interpret cover depth as a percentage of box depth or millimetres")
+        self.argparser.add_argument(
+            "--cover_depth", action="store", type=float, default=33.3,
+            help="partial-cover depth, as selected by cover_depth_mode")
+        self.argparser.add_argument(
+            "--cover_label", action="store", type=str, default="",
+            help="text engraved on a text partial top cover")
+
+    def coverDepth(self, y):
+        if self.cover_depth_mode == "percent":
+            depth = y * self.cover_depth / 100.0
+        else:
+            depth = self.cover_depth
+
+        if depth <= 0 or depth >= y:
+            raise ValueError("cover depth must be greater than zero and smaller than box depth")
+        return depth
+
+    def coverLabel(self, width, depth):
+        if self.cover_mode == "text" and self.cover_label:
+            fontsize = min(10, depth / 3, width / max(1, len(self.cover_label)))
+            self.text(self.cover_label, width / 2, depth / 2,
+                      align="center middle", fontsize=fontsize)
+
+    def partialCover(self, x, y):
+        if self.cover_mode == "none":
+            return
+        if self.top_edge != "e":
+            raise ValueError("partial top cover requires top_edge=e")
+
+        depth = self.coverDepth(y)
+        t = self.thickness
+        width = x + 2 * t
+        label = "partial top cover (%s)" % self.cover_position
+
+        self.rectangularWall(width, depth, "eeee",
+                             callback=[lambda: self.coverLabel(width, depth)],
+                             move="up", label=label)
+        # Two rails glue beneath the cover and against the side walls. They
+        # locate the strip at the selected end and make the fixed cover easy
+        # to assemble without changing the standard wall joints.
+        self.rectangularWall(depth, t, "eeee", move="up",
+                             label="partial cover support left")
+        self.rectangularWall(depth, t, "eeee", move="up",
+                             label="partial cover support right")
 
     def top_hole(self, x, y, top_edge):
         t = self.thickness
@@ -98,6 +154,7 @@ class UniversalBox(_TopEdge):
 
             self.drawLid(x, y, self.top_edge, [d2, d3])
             self.lid(x, y, self.top_edge)
+            self.partialCover(x, y)
 
         self.rectangularWall(x, h, [b, sideedge, tf, sideedge],
                              ignore_widths=ignore_widths,

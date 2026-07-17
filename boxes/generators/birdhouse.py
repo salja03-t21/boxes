@@ -29,6 +29,38 @@ class BirdHouse(Boxes):
         self.argparser.add_argument(
             "--roof_overhang",  action="store", type=float, default=0.4,
             help="overhang as fraction of the roof length")
+        for side in ("front", "back", "left", "right"):
+            self.argparser.add_argument(
+                f"--{side}_opening_shape", action="store", type=str,
+                choices=("none", "circle", "rectangle", "oval"),
+                default="rectangle",
+                help=f"opening shape on the {side} wall")
+            self.argparser.add_argument(
+                f"--{side}_opening_width", action="store", type=float,
+                default=0.0, help=f"opening width or diameter on the {side} wall")
+            self.argparser.add_argument(
+                f"--{side}_opening_height", action="store", type=float,
+                default=0.0, help=f"opening height on the {side} wall")
+        self.argparser.add_argument(
+            "--perch_mode", action="store", type=str, default="none",
+            choices=("none", "dowel", "ledge"),
+            help="shared perch added below each opening")
+        self.argparser.add_argument(
+            "--perch_size_mode", action="store", type=str, default="auto",
+            choices=("auto", "manual"),
+            help="derive ledge dimensions automatically or use manual values")
+        self.argparser.add_argument(
+            "--perch_diameter", action="store", type=float, default=8.0,
+            help="dowel diameter")
+        self.argparser.add_argument(
+            "--perch_projection", action="store", type=float, default=18.0,
+            help="distance a supplied dowel projects from the wall")
+        self.argparser.add_argument(
+            "--perch_ledge_width", action="store", type=float, default=0.0,
+            help="manual integrated ledge width")
+        self.argparser.add_argument(
+            "--perch_ledge_depth", action="store", type=float, default=0.0,
+            help="manual integrated ledge depth")
 
     def side(self, x, h, edges="hfeffef", callback=None, move=None):
         angles = (90, 0, 45, 90, 45, 0, 90)
@@ -77,10 +109,67 @@ class BirdHouse(Boxes):
 
         self.move(tw, th, move)
 
-    def side_hole(self, width):
-        self.rectangularHole(width/2, self.h/2,
-                             0.75*width, 0.75*self.h,
-                             r=self.thickness)
+    def openingDimensions(self, side, width, height):
+        shape = getattr(self, f"{side}_opening_shape")
+        if shape == "none":
+            return None
+
+        opening_width = getattr(self, f"{side}_opening_width") or 0.75 * width
+        opening_height = getattr(self, f"{side}_opening_height") or 0.75 * height
+        if shape == "circle":
+            opening_height = opening_width
+
+        if opening_width <= 0 or opening_height <= 0:
+            raise ValueError("opening dimensions must be greater than zero")
+        if opening_width >= width or opening_height >= height:
+            raise ValueError("opening dimensions must fit inside the wall")
+        return shape, opening_width, opening_height
+
+    def openingCallback(self, side, width, height):
+        dimensions = self.openingDimensions(side, width, height)
+        if dimensions is None:
+            return None
+
+        shape, opening_width, opening_height = dimensions
+
+        def callback():
+            x = width / 2
+            y = height / 2
+            if shape == "circle":
+                self.hole(x, y, d=opening_width)
+            elif shape == "rectangle":
+                self.rectangularHole(x, y, opening_width, opening_height,
+                                     r=self.thickness)
+            else:
+                self.rectangularHole(x, y, opening_width, opening_height,
+                                     r=min(opening_width, opening_height) / 2)
+            self.perchMount(x, y, opening_height)
+
+        return callback
+
+    def perchMount(self, x, opening_y, opening_height):
+        if self.perch_mode != "dowel":
+            return
+        if self.perch_diameter <= 0 or self.perch_projection <= 0:
+            raise ValueError("dowel diameter and projection must be greater than zero")
+        perch_y = max(self.thickness + self.perch_diameter / 2,
+                      opening_y - opening_height / 2 - self.thickness - self.perch_diameter / 2)
+        self.hole(x, perch_y, d=self.perch_diameter)
+
+    def ledgeDimensions(self, opening_width, opening_height):
+        if self.perch_size_mode == "auto":
+            return max(2 * self.thickness, opening_width * 1.25), max(2 * self.thickness, opening_height / 2)
+        if self.perch_ledge_width <= 0 or self.perch_ledge_depth <= 0:
+            raise ValueError("manual ledge dimensions must be greater than zero")
+        return self.perch_ledge_width, self.perch_ledge_depth
+
+    def renderLedges(self, openings):
+        if self.perch_mode != "ledge":
+            return
+        for side, opening_width, opening_height in openings:
+            width, depth = self.ledgeDimensions(opening_width, opening_height)
+            self.rectangularWall(width, depth, "eeee", move="up",
+                                 label=f"integrated perch {side}")
 
     def render(self):
         x, y, h = self.x, self.y, self.h
@@ -88,14 +177,24 @@ class BirdHouse(Boxes):
         roof = 2**0.5 * x / 2
         overhang = roof * self.roof_overhang
 
-        cbx = [lambda: self.side_hole(x)]
-        cby = [lambda: self.side_hole(y)]
+        front = self.openingCallback("front", x, h)
+        back = self.openingCallback("back", x, h)
+        left = self.openingCallback("left", y, h)
+        right = self.openingCallback("right", y, h)
 
-        self.side(x, h, callback=cbx, move="right")
-        self.side(x, h, callback=cbx, move="right")
-        self.rectangularWall(y, h, "hFeF", callback=cby, move="right")
-        self.rectangularWall(y, h, "hFeF", callback=cby, move="right")
+        self.side(x, h, callback=[front], move="right")
+        self.side(x, h, callback=[back], move="right")
+        self.rectangularWall(y, h, "hFeF", callback=[left], move="right")
+        self.rectangularWall(y, h, "hFeF", callback=[right], move="right")
         self.rectangularWall(x, y, "ffff", move="right")
         self.edges["h"].settings.setValues(self.thickness, relative=False, edge_width=overhang)
         self.roof(y, roof, overhang, "eefe", move="right")
         self.roof(y, roof, overhang, "eeFe", move="right")
+
+        openings = []
+        for side, width in (("front", x), ("back", x), ("left", y), ("right", y)):
+            dimensions = self.openingDimensions(side, width, h)
+            if dimensions is not None:
+                _, opening_width, opening_height = dimensions
+                openings.append((side, opening_width, opening_height))
+        self.renderLedges(openings)
