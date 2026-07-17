@@ -205,3 +205,14 @@ configuration. If the repository lacks one, initialize it first.
 git add documentation examples.yml examples docs/plans
 git commit -m "docs: describe configurable box generator options"
 ```
+
+## Verification notes
+
+- Preserve generator class docstrings when possible: Boxes.py embeds them in
+  SVG metadata, so changing one alters the default SVG fixture even when the
+  generated geometry is unchanged.
+- On 2026-07-17 the full regression suite passed with `205 passed, 9 skipped`.
+- The Sphinx HTML build renders the added documentation page, but strict
+  warning mode is not currently usable for this upstream tree because of
+  pre-existing warnings, including missing generated `generators.inc` and
+  unavailable `boxes.mounts`/`boxes.svgutil` autodoc modules.

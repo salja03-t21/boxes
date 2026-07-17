@@ -15,6 +15,7 @@ Contents:
    faq
    install
    usermanual
+   configurable-generators
    CONTRIBUTING.rst
    apidoc
    generators
