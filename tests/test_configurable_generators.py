@@ -150,3 +150,14 @@ def test_birdhouse_rejects_invalid_manual_ledge_size() -> None:
                 "--perch_ledge_depth=22",
             ],
         )
+
+
+def test_birdhouse_ledge_tab_uses_a_centered_material_thickness_slot() -> None:
+    box = BirdHouse()
+    box.parseArgs(["--perch_mode=ledge"])
+    slots: list[tuple[float, float, float, float]] = []
+    box.rectangularHole = lambda x, y, dx, dy: slots.append((x, y, dx, dy))
+
+    box.ledgeMount(70, 80, 32)
+
+    assert slots == [(70, 62.5, box.thickness, box.thickness)]
