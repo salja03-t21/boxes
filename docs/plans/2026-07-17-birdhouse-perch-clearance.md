@@ -171,7 +171,8 @@ git commit -m "test: verify BirdHouse perch clearance SVGs"
 
 **Files:**
 - Modify: `documentation/src/configurable-generators.rst:35-61`
-- Modify: `examples/BirdHouse.svg`
+- Modify: `examples.yml`
+- Create: `examples/BirdHousePerchClearance_<args-hash>.svg`
 
 **Step 1: Update user documentation**
 
@@ -182,8 +183,10 @@ errors. Include a concise 17 mm example.
 
 **Step 2: Regenerate the canonical SVG**
 
-Use the same reproducible generator path used by the fixture test so
-`examples/BirdHouse.svg` reflects the new safe automatic placement.
+Add a configured BirdHouse example with a circular front opening, an integrated
+ledge, and automatic clearance. Use the same reproducible generator path used
+by the fixture test so the generated example visibly demonstrates the new safe
+placement. Keep `examples/BirdHouse.svg` as the valid no-perch default.
 
 **Step 3: Verify docs and fixture**
 
