@@ -39,6 +39,10 @@ their wall.
   install it with the desired ``perch_projection``;
 * ``ledge`` adds one laser-cut ledge panel for each enabled opening.
 
+An opening shape of ``none`` disables both the wall opening and its associated
+perch. Separate ledge parts are generated only when ``perch_mode=ledge``;
+``none`` and ``dowel`` never add spare ledge cutouts.
+
 For ledges, select ``perch_size_mode=auto`` to derive proportions from the
 opening and material thickness, or ``manual`` and provide positive
 ``perch_ledge_width`` and ``perch_ledge_depth`` values. Each ledge has a
@@ -51,6 +55,8 @@ width (with material-aware minimum shoulders). Select ``manual`` and provide
 the material thickness so it fits the wall slot. ``perch_projection`` applies
 only to a supplied dowel; ledge depth is ``perch_ledge_depth``.
 
-All BirdHouse cutouts are packed into compact rows. ``sheet_width`` sets the
-maximum layout width in millimetres (default 600 mm); narrower sheets produce
-additional rows.
+All BirdHouse cutouts are packed from their exact rendered bounds using a
+deterministic best-fit layout. Parts may rotate 90 degrees to reduce material
+use. ``sheet_width`` sets the maximum physical cut-layout width in millimetres
+(default 600 mm); the output height is minimized while preserving the
+configured spacing and preventing cutout overlap.
