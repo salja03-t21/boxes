@@ -4,8 +4,8 @@
 ## Backend
 lint_command: "SKIP=autoflake,rstcheck,pytest .venv/bin/pre-commit run --all-files"
 test_command: ".venv/bin/pytest -q -n auto"
-coverage_command: ""
-coverage_threshold: 0
+coverage_command: ".venv/bin/coverage erase && .venv/bin/coverage run -m pytest -q tests/test_configurable_generators.py -k birdhouse && .venv/bin/coverage report --fail-under=75 -m boxes/generators/birdhouse.py"
+coverage_threshold: 75
 
 ## Frontend
 frontend_lint: ""
@@ -30,7 +30,7 @@ excluded_paths:
 
 ## Notes
 notes:
-  - "Coverage is not enforced for this container/workflow-only phase; configure pytest-cov before gating application logic changes."
+  - "BirdHouse application changes use focused pytest-cov evidence; the changed behavior must be exercised even though no repo-wide percentage is enforced yet."
   - "On macOS, autoflake and rstcheck must be run one process/file at a time if the host POSIX semaphore pool is exhausted."
   - "The pytest pre-commit hook uses the system interpreter; the test command above deliberately uses the project virtualenv."
   - "Install pytest-xdist in the project virtualenv before running Bouncer; parallel execution keeps the full generator suite inside the audit timeout."
