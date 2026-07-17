@@ -156,6 +156,7 @@ def test_four_opening_layout_has_no_overlaps_and_respects_sheet_width() -> None:
     assert len(bboxes) == 11
     assert_part_spacing(bboxes, minimum=1.25)
     assert max(box[2] for box in bboxes) - min(box[0] for box in bboxes) <= 600
+    assert max(box[3] for box in bboxes) - min(box[1] for box in bboxes) <= 470
 
 
 @pytest.mark.parametrize(

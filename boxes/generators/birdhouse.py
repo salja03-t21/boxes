@@ -256,24 +256,46 @@ class BirdHouse(Boxes):
         if self.sheet_width <= 0:
             raise ValueError("sheet width must be greater than zero")
 
-        packer = newPacker(
-            rotation=True,
-            pack_algo=rectpack.MaxRectsBssf,
-            bin_algo=PackingBin.Global,
-            sort_algo=rectpack.SORT_AREA,
-        )
         padded_sizes = {}
         for index, part in enumerate(parts):
             padded = part.width + self.spacing, part.height + self.spacing
+            if min(padded) > self.sheet_width:
+                raise ValueError("sheet width is too small for a BirdHouse cutout")
             padded_sizes[index] = padded
-            packer.add_rect(*padded, rid=index)
-        bin_height = sum(max(width, height) for width, height in padded_sizes.values())
-        packer.add_bin(self.sheet_width, bin_height)
-        packer.pack()
 
-        placements = sorted(packer.rect_list(), key=lambda placement: placement[5])
+        def pack_at_height(height):
+            packer = newPacker(
+                rotation=True,
+                pack_algo=rectpack.MaxRectsBssf,
+                bin_algo=PackingBin.Global,
+                sort_algo=rectpack.SORT_AREA,
+            )
+            for index, padded in padded_sizes.items():
+                packer.add_rect(*padded, rid=index)
+            packer.add_bin(self.sheet_width, height)
+            packer.pack()
+            return packer.rect_list()
+
+        total_area = sum(width * height for width, height in padded_sizes.values())
+        lower_height = max(
+            total_area / self.sheet_width,
+            max(min(width, height) for width, height in padded_sizes.values()),
+        )
+        upper_height = sum(max(width, height) for width, height in padded_sizes.values())
+        placements = pack_at_height(upper_height)
         if len(placements) != len(parts):
             raise ValueError("sheet width is too small for a BirdHouse cutout")
+
+        while upper_height - lower_height > 0.5:
+            candidate_height = (lower_height + upper_height) / 2
+            candidate = pack_at_height(candidate_height)
+            if len(candidate) == len(parts):
+                upper_height = candidate_height
+                placements = candidate
+            else:
+                lower_height = candidate_height
+
+        placements = sorted(placements, key=lambda placement: placement[5])
 
         for _, x, y, packed_width, packed_height, index in placements:
             part = parts[index]
