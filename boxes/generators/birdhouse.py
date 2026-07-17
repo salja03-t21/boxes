@@ -208,7 +208,7 @@ class BirdHouse(Boxes):
             tab = self.ledgeTabWidth(width)
             self.polygonWall(
                 self.ledgeBorders(width, depth, tab),
-                edge="e", move="up", label=f"integrated perch {side} tab")
+                edge="e", move="up", label=f"{side} perch")
 
     def packParts(self, parts):
         if self.sheet_width <= 0:
@@ -270,5 +270,5 @@ class BirdHouse(Boxes):
                           self.polygonWall(
                               self.ledgeBorders(width, depth, tab),
                               edge="e", move=None,
-                              label=f"integrated perch {side} tab")))
+                              label=f"{side} perch")))
         self.packParts(parts)
