@@ -161,3 +161,33 @@ def test_birdhouse_ledge_tab_uses_a_centered_material_thickness_slot() -> None:
     box.ledgeMount(70, 80, 32)
 
     assert slots == [(70, 62.5, box.thickness, box.thickness)]
+
+
+def test_universal_box_partial_cover_uses_finger_joint_side_edges() -> None:
+    box = UniversalBox()
+    box.parseArgs([
+        "--x=120", "--y=90", "--h=60", "--top_edge=e",
+        "--cover_mode=blank", "--cover_depth_mode=mm", "--cover_depth=30",
+    ])
+    parts: list[tuple[float, float, str, str]] = []
+    box.rectangularWall = lambda x, y, edges, **kwargs: parts.append(
+        (x, y, edges, kwargs["label"])
+    )
+
+    box.partialCover(120, 90)
+
+    assert parts == [(120, 30, "effe", "partial top cover (back)")]
+
+
+def test_universal_box_partial_cover_slot_matches_selected_end() -> None:
+    box = UniversalBox()
+    box.parseArgs([
+        "--y=90", "--h=60", "--top_edge=e", "--cover_mode=blank",
+        "--cover_position=back", "--cover_depth_mode=mm", "--cover_depth=30",
+    ])
+    slots: list[tuple[float, float, float, int]] = []
+    box.fingerHolesAt = lambda x, y, length, angle: slots.append((x, y, length, angle))
+
+    box.partialCoverSlot(90, 60)
+
+    assert slots == [(60, 58.5, 30, 0)]

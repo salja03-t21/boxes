@@ -72,6 +72,13 @@ class UniversalBox(_TopEdge):
             self.text(self.cover_label, width / 2, depth / 2,
                       align="center middle", fontsize=fontsize)
 
+    def partialCoverSlot(self, y, h):
+        if self.cover_mode == "none":
+            return
+        depth = self.coverDepth(y)
+        start = 0 if self.cover_position == "front" else y - depth
+        self.fingerHolesAt(start, h - self.thickness / 2, depth, 0)
+
     def partialCover(self, x, y):
         if self.cover_mode == "none":
             return
@@ -79,20 +86,12 @@ class UniversalBox(_TopEdge):
             raise ValueError("partial top cover requires top_edge=e")
 
         depth = self.coverDepth(y)
-        t = self.thickness
-        width = x + 2 * t
+        width = x
         label = "partial top cover (%s)" % self.cover_position
 
-        self.rectangularWall(width, depth, "eeee",
+        self.rectangularWall(width, depth, "effe",
                              callback=[lambda: self.coverLabel(width, depth)],
                              move="up", label=label)
-        # Two rails glue beneath the cover and against the side walls. They
-        # locate the strip at the selected end and make the fixed cover easy
-        # to assemble without changing the standard wall joints.
-        self.rectangularWall(depth, t, "eeee", move="up",
-                             label="partial cover support left")
-        self.rectangularWall(depth, t, "eeee", move="up",
-                             label="partial cover support right")
 
     def top_hole(self, x, y, top_edge):
         t = self.thickness
@@ -125,6 +124,7 @@ class UniversalBox(_TopEdge):
         d2 = d3 = None
 
         sideedge = "F" if self.vertical_edges == "finger joints" else "h"
+        cover_slots = [None, None, lambda: self.partialCoverSlot(y, h), None]
 
         if self.outside:
             self.x = x = self.adjustSize(x, sideedge, sideedge)
@@ -159,9 +159,9 @@ class UniversalBox(_TopEdge):
         self.rectangularWall(x, h, [b, sideedge, tf, sideedge],
                              ignore_widths=ignore_widths,
                              bedBolts=[d2], move="right only", label="invisible")
-        self.rectangularWall(y, h, [b, "f", tl, "f"],
+        self.rectangularWall(y, h, [b, "f", tl, "f"], callback=cover_slots,
                              ignore_widths=ignore_widths,
                              bedBolts=[d3], move="up", label="left")
-        self.rectangularWall(y, h, [b, "f", tr, "f"],
+        self.rectangularWall(y, h, [b, "f", tr, "f"], callback=cover_slots,
                              ignore_widths=ignore_widths,
                              bedBolts=[d3], move="up", label="right")
