@@ -2,6 +2,23 @@ Boxes:
   - box_type: __ALL__
     skipGenerators: [ GridfinityTrayLayout, TrayLayout, TrayLayoutFile, TypeTray, Edges ]
     brokenGenerators: [ RoundedTrapezoidBox ]
+  - box_type: BirdHouse
+    name: BirdHousePerchClearance
+    args:
+      x: 140
+      y: 120
+      h: 160
+      front_opening_shape: circle
+      front_opening_width: 52
+      back_opening_shape: none
+      left_opening_shape: none
+      right_opening_shape: none
+      perch_mode: ledge
+      perch_clearance_mode: auto
+      perch_size_mode: manual
+      perch_ledge_width: 30
+      perch_ledge_depth: 30
+      sheet_width: 300
   - box_type: GridfinityTrayLayout
     args:
       h: 6u

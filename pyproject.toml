@@ -24,10 +24,12 @@ classifiers = [ # https://pypi.python.org/pypi?%3Aaction=list_classifiers
 
 [project.optional-dependencies]
 dev = [
+  "coverage>=7.10.7",
   "lxml>=6.0.2",
   "mypy>=2.1.0",
   "pre-commit>=4.6.0",
   "pytest>=9.0.3",
+  "pytest-xdist>=3.8.0",
   "types-Markdown"
 ]
 doc = ["sphinx>=8.0.2"]

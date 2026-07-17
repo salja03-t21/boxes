@@ -73,6 +73,13 @@ class BirdHouse(Boxes):
             "--perch_projection", action="store", type=float, default=18.0,
             help="distance a supplied dowel projects from the wall")
         self.argparser.add_argument(
+            "--perch_clearance_mode", action="store", type=str,
+            choices=("auto", "manual"), default="auto",
+            help="place perch mounts with automatic or manual opening clearance")
+        self.argparser.add_argument(
+            "--perch_clearance", action="store", type=float, default=10.0,
+            help="manual gap between the opening and perch mount")
+        self.argparser.add_argument(
             "--perch_ledge_width", action="store", type=float, default=0.0,
             help="manual integrated ledge width")
         self.argparser.add_argument(
@@ -193,17 +200,35 @@ class BirdHouse(Boxes):
             return
         if self.perch_diameter <= 0 or self.perch_projection <= 0:
             raise ValueError("dowel diameter and projection must be greater than zero")
-        perch_y = max(self.thickness + self.perch_diameter / 2,
-                      opening_y - opening_height / 2 - self.thickness - self.perch_diameter / 2)
+        perch_y = self.perchMountY(
+            opening_y, opening_height, self.perch_diameter)
         self.hole(x, perch_y, d=self.perch_diameter)
 
     def ledgeMount(self, x, opening_y, opening_width, opening_height):
         if self.perch_mode != "ledge":
             return
         t = self.thickness
-        ledge_y = max(t / 2, opening_y - opening_height / 2 - t / 2)
+        ledge_y = self.perchMountY(opening_y, opening_height, t)
         ledge_width, _ = self.ledgeDimensions(opening_width, opening_height)
         self.rectangularHole(x, ledge_y, self.ledgeTabWidth(ledge_width), t)
+
+    def perchClearance(self):
+        if self.perch_clearance_mode == "auto":
+            clearance = 10.0
+        else:
+            clearance = self.perch_clearance
+        if clearance < 0:
+            raise ValueError("perch clearance must not be negative")
+        return clearance
+
+    def perchMountY(self, opening_y, opening_height, mount_height):
+        mount_y = (
+            opening_y - opening_height / 2
+            - self.perchClearance() - mount_height / 2
+        )
+        if mount_y - mount_height / 2 < 0:
+            raise ValueError("perch clearance places the mount outside the wall")
+        return mount_y
 
     def ledgeDimensions(self, opening_width, opening_height):
         if self.perch_size_mode == "auto":
