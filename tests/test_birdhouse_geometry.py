@@ -163,6 +163,53 @@ def test_ledge_polygon_closes_without_an_extra_cut_line() -> None:
 
 
 @pytest.mark.parametrize(
+    ("mode", "configured", "expected"),
+    [("auto", 3, 10), ("manual", 17, 17)],
+)
+def test_perch_clearance(mode: str, configured: float, expected: float) -> None:
+    box = BirdHouse()
+    box.parseArgs([
+        f"--perch_clearance_mode={mode}",
+        f"--perch_clearance={configured}",
+    ])
+
+    assert box.perchClearance() == expected
+
+
+def test_perch_mount_position_uses_edge_to_edge_clearance() -> None:
+    box = BirdHouse()
+    box.parseArgs([
+        "--perch_clearance_mode=manual",
+        "--perch_clearance=17",
+    ])
+
+    assert box.perchMountY(80, 40, 8) == 39
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (
+            ["--perch_clearance_mode=manual", "--perch_clearance=-1"],
+            "perch clearance must not be negative",
+        ),
+        (
+            ["--perch_clearance_mode=manual", "--perch_clearance=60"],
+            "perch clearance places the mount outside the wall",
+        ),
+    ],
+)
+def test_invalid_perch_clearance_is_rejected(
+    args: list[str], message: str
+) -> None:
+    box = BirdHouse()
+    box.parseArgs(args)
+
+    with pytest.raises(ValueError, match=message):
+        box.perchMountY(80, 40, 8)
+
+
+@pytest.mark.parametrize(
     "enabled",
     [(), ("front",), ("front", "back"), SIDES],
 )
