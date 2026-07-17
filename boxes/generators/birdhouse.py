@@ -62,6 +62,16 @@ class BirdHouse(Boxes):
         self.argparser.add_argument(
             "--perch_ledge_depth", action="store", type=float, default=0.0,
             help="manual integrated ledge depth")
+        self.argparser.add_argument(
+            "--perch_ledge_tab_width_mode", action="store", type=str,
+            choices=("auto", "manual"), default="auto",
+            help="derive ledge tab width automatically or use a manual value")
+        self.argparser.add_argument(
+            "--perch_ledge_tab_width", action="store", type=float, default=0.0,
+            help="manual ledge through-tab width")
+        self.argparser.add_argument(
+            "--sheet_width", action="store", type=float, default=600.0,
+            help="maximum width used to pack BirdHouse cutouts")
 
     def side(self, x, h, edges="hfeffef", callback=None, move=None):
         angles = (90, 0, 45, 90, 45, 0, 90)
@@ -172,17 +182,43 @@ class BirdHouse(Boxes):
             raise ValueError("manual ledge dimensions must be greater than zero")
         return self.perch_ledge_width, self.perch_ledge_depth
 
+    def ledgeTabWidth(self, ledge_width):
+        if self.perch_ledge_tab_width_mode == "manual":
+            tab_width = self.perch_ledge_tab_width
+        else:
+            tab_width = max(2 * self.thickness, ledge_width / 3)
+        if tab_width <= 0 or tab_width >= ledge_width:
+            raise ValueError("ledge tab width must be greater than zero and smaller than ledge width")
+        return tab_width
+
     def renderLedges(self, openings):
         if self.perch_mode != "ledge":
             return
         for side, opening_width, opening_height in openings:
             width, depth = self.ledgeDimensions(opening_width, opening_height)
-            tab = self.thickness
+            tab = self.ledgeTabWidth(width)
             self.polygonWall(
                 [width, 90, depth, 90, (width - tab) / 2, -90,
-                 tab, 90, tab, 90, tab, -90, (width - tab) / 2,
+                 self.thickness, 90, tab, 90, self.thickness, -90, (width - tab) / 2,
                  -90, depth, None],
                 edge="e", move="up", label=f"integrated perch {side} tab")
+
+    def packParts(self, parts):
+        if self.sheet_width <= 0:
+            raise ValueError("sheet width must be greater than zero")
+        x = y = row_height = 0
+        for width, height, render in parts:
+            if width > self.sheet_width:
+                raise ValueError("sheet width is too small for a BirdHouse cutout")
+            if x and x + width > self.sheet_width:
+                x = 0
+                y += row_height + self.spacing
+                row_height = 0
+            with self.saved_context():
+                self.moveTo(x, y)
+                render()
+            x += width + self.spacing
+            row_height = max(row_height, height)
 
     def render(self):
         x, y, h = self.x, self.y, self.h
@@ -195,14 +231,7 @@ class BirdHouse(Boxes):
         left = self.openingCallback("left", y, h)
         right = self.openingCallback("right", y, h)
 
-        self.side(x, h, callback=[front], move="right")
-        self.side(x, h, callback=[back], move="right")
-        self.rectangularWall(y, h, "hFeF", callback=[left], move="right")
-        self.rectangularWall(y, h, "hFeF", callback=[right], move="right")
-        self.rectangularWall(x, y, "ffff", move="right")
         self.edges["h"].settings.setValues(self.thickness, relative=False, edge_width=overhang)
-        self.roof(y, roof, overhang, "eefe", move="right")
-        self.roof(y, roof, overhang, "eeFe", move="right")
 
         openings = []
         for side, width in (("front", x), ("back", x), ("left", y), ("right", y)):
@@ -210,4 +239,31 @@ class BirdHouse(Boxes):
             if dimensions is not None:
                 _, opening_width, opening_height = dimensions
                 openings.append((side, opening_width, opening_height))
-        self.renderLedges(openings)
+        side_width = x + 2 * self.thickness
+        side_height = h + x / 2 + 3 * self.thickness
+        roof_width = y + 2 * self.thickness + 2 * overhang
+        roof_height = roof + 2 * self.thickness + overhang
+        parts = [
+            (side_width, side_height, lambda: self.side(x, h, callback=[front], move=None)),
+            (side_width, side_height, lambda: self.side(x, h, callback=[back], move=None)),
+            (y + 2 * self.thickness, h + 2 * self.thickness,
+             lambda: self.rectangularWall(y, h, "hFeF", callback=[left], move=None)),
+            (y + 2 * self.thickness, h + 2 * self.thickness,
+             lambda: self.rectangularWall(y, h, "hFeF", callback=[right], move=None)),
+            (x + 2 * self.thickness, y + 2 * self.thickness,
+             lambda: self.rectangularWall(x, y, "ffff", move=None)),
+            (roof_width, roof_height, lambda: self.roof(y, roof, overhang, "eefe", move=None)),
+            (roof_width, roof_height, lambda: self.roof(y, roof, overhang, "eeFe", move=None)),
+        ]
+        for side, opening_width, opening_height in openings:
+            width, depth = self.ledgeDimensions(opening_width, opening_height)
+            tab = self.ledgeTabWidth(width)
+            parts.append((width, depth + self.thickness,
+                          lambda side=side, width=width, depth=depth, tab=tab:
+                          self.polygonWall(
+                              [width, 90, depth, 90, (width - tab) / 2, -90,
+                               self.thickness, 90, tab, 90, self.thickness, -90,
+                               (width - tab) / 2, -90, depth, None],
+                              edge="e", move=None,
+                              label=f"integrated perch {side} tab")))
+        self.packParts(parts)

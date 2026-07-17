@@ -173,6 +173,23 @@ def test_birdhouse_circle_opening_uses_width_as_its_only_dimension() -> None:
     assert box.openingDimensions("front", 140, 160) == ("circle", 32, 32)
 
 
+def test_birdhouse_ledge_tab_width_defaults_to_one_third_of_ledge_width() -> None:
+    box = BirdHouse()
+    box.parseArgs(["--perch_mode=ledge", "--perch_ledge_tab_width_mode=auto"])
+
+    assert box.ledgeTabWidth(30) == 10
+
+
+def test_birdhouse_ledge_tab_width_accepts_manual_value() -> None:
+    box = BirdHouse()
+    box.parseArgs([
+        "--perch_mode=ledge", "--perch_ledge_tab_width_mode=manual",
+        "--perch_ledge_tab_width=18",
+    ])
+
+    assert box.ledgeTabWidth(30) == 18
+
+
 def test_universal_box_partial_cover_uses_finger_joint_side_edges() -> None:
     box = UniversalBox()
     box.parseArgs([

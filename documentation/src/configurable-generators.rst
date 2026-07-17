@@ -44,3 +44,13 @@ opening and material thickness, or ``manual`` and provide positive
 ``perch_ledge_width`` and ``perch_ledge_depth`` values. Each ledge has a
 centered through-tab that fits a matching slot below its opening, keeping the
 ledge square during assembly. Glue the fitted joint for final strength.
+
+``perch_ledge_tab_width_mode=auto`` makes the tab one third of the ledge
+width (with material-aware minimum shoulders). Select ``manual`` and provide
+``perch_ledge_tab_width`` to override it in millimetres. The tab depth remains
+the material thickness so it fits the wall slot. ``perch_projection`` applies
+only to a supplied dowel; ledge depth is ``perch_ledge_depth``.
+
+All BirdHouse cutouts are packed into compact rows. ``sheet_width`` sets the
+maximum layout width in millimetres (default 600 mm); narrower sheets produce
+additional rows.
