@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
 from io import BytesIO
 from urllib.parse import urlencode
 
@@ -60,6 +61,29 @@ def physical_part_bboxes(svg: bytes) -> list[tuple[float, float, float, float]]:
             max(box[3] for box in path_bboxes),
         ))
     return bboxes
+
+
+def rendered_opening_sizes(svg: bytes) -> Counter[tuple[float, float]]:
+    """Return normalized bounds for blue cutouts large enough to be openings."""
+    root = etree.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    sizes = Counter()
+    for element in root.xpath(
+        './/svg:path[@stroke="rgb(0,0,255)"]', namespaces=namespace
+    ):
+        xmin, xmax, ymin, ymax = parse_path(element.get("d", "")).bbox()
+        dimensions = sorted((xmax - xmin, ymax - ymin))
+        if dimensions[0] > 15:
+            sizes[(round(dimensions[0], 1), round(dimensions[1], 1))] += 1
+    return sizes
+
+
+def assert_all_cut_paths_closed(svg: bytes) -> None:
+    root = etree.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    for element in root.xpath(".//svg:path[@d]", namespaces=namespace):
+        path = parse_path(element.get("d", ""))
+        assert path.isclosed(), f"open cut path: {element.get('d', '')}"
 
 
 def assert_part_spacing(
@@ -160,12 +184,12 @@ def test_four_opening_layout_has_no_overlaps_and_respects_sheet_width() -> None:
 
 
 @pytest.mark.parametrize(
-    ("perch_mode", "size_mode", "tab_mode", "sheet_width"),
+    ("perch_mode", "size_mode", "tab_mode", "dimensions", "sheet_width"),
     [
-        ("none", "auto", "auto", 300),
-        ("dowel", "auto", "auto", 400),
-        ("ledge", "auto", "auto", 600),
-        ("ledge", "manual", "manual", 300),
+        ("none", "auto", "auto", (120, 100, 140), 300),
+        ("dowel", "auto", "auto", (160, 110, 180), 400),
+        ("ledge", "auto", "auto", (140, 120, 160), 600),
+        ("ledge", "manual", "manual", (180, 130, 200), 300),
     ],
 )
 @pytest.mark.parametrize("enabled_mask", range(16))
@@ -173,6 +197,7 @@ def test_backend_svg_option_matrix_is_clean(
     perch_mode: str,
     size_mode: str,
     tab_mode: str,
+    dimensions: tuple[int, int, int],
     sheet_width: int,
     enabled_mask: int,
 ) -> None:
@@ -180,10 +205,17 @@ def test_backend_svg_option_matrix_is_clean(
         side for index, side in enumerate(SIDES) if enabled_mask & (1 << index)
     )
     shapes = {"front": "circle", "back": "rectangle", "left": "oval", "right": "circle"}
+    opening_sizes = {
+        "front": (31, 31),
+        "back": (34, 22),
+        "left": (37, 25),
+        "right": (29, 29),
+    }
+    x, y, h = dimensions
     parameters: dict[str, str | float] = {
-        "x": 140,
-        "y": 120,
-        "h": 160,
+        "x": x,
+        "y": y,
+        "h": h,
         "perch_mode": perch_mode,
         "perch_size_mode": size_mode,
         "perch_ledge_width": 30,
@@ -194,16 +226,24 @@ def test_backend_svg_option_matrix_is_clean(
     }
     for side in SIDES:
         parameters[f"{side}_opening_shape"] = shapes[side] if side in enabled else "none"
-        parameters[f"{side}_opening_width"] = 32
-        parameters[f"{side}_opening_height"] = 24
+        width, height = opening_sizes[side]
+        parameters[f"{side}_opening_width"] = width
+        parameters[f"{side}_opening_height"] = height
 
     svg = backend_render_birdhouse(parameters)
     bboxes = physical_part_bboxes(svg)
 
     expected_parts = 7 + (len(enabled) if perch_mode == "ledge" else 0)
     assert len(bboxes) == expected_parts
+    assert_all_cut_paths_closed(svg)
     assert_part_spacing(bboxes, minimum=1.25)
     assert max(box[2] for box in bboxes) - min(box[0] for box in bboxes) <= sheet_width
+    expected_openings = Counter(
+        tuple(sorted((width - 0.2, height - 0.2)))
+        for side in enabled
+        for width, height in [opening_sizes[side]]
+    )
+    assert rendered_opening_sizes(svg) == expected_openings
     assert {text for text in svg_text(svg) if text.endswith(" perch")} == (
         {f"{side} perch" for side in enabled} if perch_mode == "ledge" else set()
     )
