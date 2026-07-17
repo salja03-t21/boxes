@@ -78,6 +78,37 @@ def rendered_opening_sizes(svg: bytes) -> Counter[tuple[float, float]]:
     return sizes
 
 
+def rendered_mount_gap(svg: bytes, opening_size: float) -> float:
+    """Measure the gap between one circular opening and its small mount."""
+    root = etree.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    rendered_opening_size = opening_size - 0.2
+    for group in root.xpath("./svg:g", namespaces=namespace):
+        blue_bboxes = [
+            parse_path(element.get("d", "")).bbox()
+            for element in group.xpath(
+                './/svg:path[@stroke="rgb(0,0,255)"]', namespaces=namespace
+            )
+        ]
+        openings = [
+            bbox for bbox in blue_bboxes
+            if math.isclose(bbox[1] - bbox[0], rendered_opening_size, abs_tol=0.05)
+            and math.isclose(bbox[3] - bbox[2], rendered_opening_size, abs_tol=0.05)
+        ]
+        mounts = [
+            bbox for bbox in blue_bboxes
+            if max(bbox[1] - bbox[0], bbox[3] - bbox[2]) < 15
+        ]
+        if len(openings) == 1 and len(mounts) == 1:
+            opening, mount = openings[0], mounts[0]
+            horizontal_gap = max(
+                mount[0] - opening[1], opening[0] - mount[1], 0)
+            vertical_gap = max(
+                mount[2] - opening[3], opening[2] - mount[3], 0)
+            return max(horizontal_gap, vertical_gap)
+    raise AssertionError("opening and perch mount were not found in one wall")
+
+
 def assert_all_cut_paths_closed(svg: bytes) -> None:
     root = etree.fromstring(svg)
     namespace = {"svg": "http://www.w3.org/2000/svg"}
@@ -98,7 +129,9 @@ def assert_part_spacing(
             )
 
 
-def backend_render_birdhouse(parameters: dict[str, str | float]) -> bytes:
+def backend_request_birdhouse(
+    parameters: dict[str, str | float]
+) -> tuple[str, dict[str, str], bytes]:
     response: dict[str, object] = {}
 
     def start_response(status: str, headers: list[tuple[str, str]]) -> None:
@@ -123,8 +156,13 @@ def backend_render_birdhouse(parameters: dict[str, str | float]) -> bytes:
     }
     body = b"".join(BServer().serve(environ, start_response))
 
-    assert response["status"] == "200 OK"
-    headers = dict(response["headers"])
+    return str(response["status"]), dict(response["headers"]), body
+
+
+def backend_render_birdhouse(parameters: dict[str, str | float]) -> bytes:
+    status, headers, body = backend_request_birdhouse(parameters)
+
+    assert status == "200 OK"
     assert headers["Content-type"].startswith("image/svg+xml")
     etree.fromstring(body)
     return body
@@ -209,6 +247,64 @@ def test_invalid_perch_clearance_is_rejected(
         box.perchMountY(80, 40, 8)
 
 
+@pytest.mark.parametrize("perch_mode", ["dowel", "ledge"])
+@pytest.mark.parametrize("opening_size", [32, 52])
+@pytest.mark.parametrize(
+    ("clearance_mode", "clearance", "expected"),
+    [("auto", 2, 10.2), ("manual", 17, 17.2)],
+)
+def test_backend_renders_requested_perch_clearance(
+    perch_mode: str,
+    opening_size: float,
+    clearance_mode: str,
+    clearance: float,
+    expected: float,
+) -> None:
+    svg = backend_render_birdhouse({
+        "x": 140,
+        "y": 120,
+        "h": 160,
+        "perch_mode": perch_mode,
+        "perch_clearance_mode": clearance_mode,
+        "perch_clearance": clearance,
+        "perch_size_mode": "manual",
+        "perch_ledge_width": 30,
+        "perch_ledge_depth": 30,
+        "front_opening_shape": "circle",
+        "front_opening_width": opening_size,
+        "back_opening_shape": "none",
+        "left_opening_shape": "none",
+        "right_opening_shape": "none",
+        "sheet_width": 600,
+    })
+
+    assert rendered_mount_gap(svg, opening_size) == pytest.approx(
+        expected, abs=0.06)
+
+
+@pytest.mark.parametrize("perch_mode", ["dowel", "ledge"])
+@pytest.mark.parametrize("clearance", [-1, 80])
+def test_backend_rejects_invalid_perch_clearance(
+    perch_mode: str, clearance: float
+) -> None:
+    status, _, body = backend_request_birdhouse({
+        "x": 140,
+        "y": 120,
+        "h": 160,
+        "perch_mode": perch_mode,
+        "perch_clearance_mode": "manual",
+        "perch_clearance": clearance,
+        "front_opening_shape": "circle",
+        "front_opening_width": 32,
+        "back_opening_shape": "none",
+        "left_opening_shape": "none",
+        "right_opening_shape": "none",
+    })
+
+    assert status == "500 Internal Server Error"
+    assert b"perch clearance" in body
+
+
 @pytest.mark.parametrize(
     "enabled",
     [(), ("front",), ("front", "back"), SIDES],
@@ -231,12 +327,15 @@ def test_four_opening_layout_has_no_overlaps_and_respects_sheet_width() -> None:
 
 
 @pytest.mark.parametrize(
-    ("perch_mode", "size_mode", "tab_mode", "dimensions", "sheet_width"),
+    (
+        "perch_mode", "size_mode", "tab_mode", "clearance_mode",
+        "clearance", "dimensions", "sheet_width",
+    ),
     [
-        ("none", "auto", "auto", (120, 100, 140), 300),
-        ("dowel", "auto", "auto", (160, 110, 180), 400),
-        ("ledge", "auto", "auto", (140, 120, 160), 600),
-        ("ledge", "manual", "manual", (180, 130, 200), 300),
+        ("none", "auto", "auto", "auto", 4, (120, 100, 140), 300),
+        ("dowel", "auto", "auto", "manual", 12, (160, 110, 180), 400),
+        ("ledge", "auto", "auto", "auto", 3, (140, 120, 160), 600),
+        ("ledge", "manual", "manual", "manual", 17, (180, 130, 200), 300),
     ],
 )
 @pytest.mark.parametrize("enabled_mask", range(16))
@@ -244,6 +343,8 @@ def test_backend_svg_option_matrix_is_clean(
     perch_mode: str,
     size_mode: str,
     tab_mode: str,
+    clearance_mode: str,
+    clearance: float,
     dimensions: tuple[int, int, int],
     sheet_width: int,
     enabled_mask: int,
@@ -269,6 +370,8 @@ def test_backend_svg_option_matrix_is_clean(
         "perch_ledge_depth": 30,
         "perch_ledge_tab_width_mode": tab_mode,
         "perch_ledge_tab_width": 10,
+        "perch_clearance_mode": clearance_mode,
+        "perch_clearance": clearance,
         "sheet_width": sheet_width,
     }
     for side in SIDES:
