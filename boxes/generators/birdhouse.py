@@ -328,13 +328,14 @@ class BirdHouse(Boxes):
             BirdHousePart("roof right", *roof_size,
                           lambda move: self.roof(y, roof, overhang, "eeFe", move=move)),
         ]
-        for side, opening_width, opening_height in openings:
-            width, depth = self.ledgeDimensions(opening_width, opening_height)
-            tab = self.ledgeTabWidth(width)
-            parts.append(BirdHousePart(
-                f"{side} perch", *self.ledgeSize(width, depth, tab),
-                lambda move, side=side, width=width, depth=depth, tab=tab:
-                self.polygonWall(
-                    self.ledgeBorders(width, depth, tab),
-                    edge="e", move=move, label=f"{side} perch")))
+        if self.perch_mode == "ledge":
+            for side, opening_width, opening_height in openings:
+                width, depth = self.ledgeDimensions(opening_width, opening_height)
+                tab = self.ledgeTabWidth(width)
+                parts.append(BirdHousePart(
+                    f"{side} perch", *self.ledgeSize(width, depth, tab),
+                    lambda move, side=side, width=width, depth=depth, tab=tab:
+                    self.polygonWall(
+                        self.ledgeBorders(width, depth, tab),
+                        edge="e", move=move, label=f"{side} perch")))
         self.packParts(parts)
