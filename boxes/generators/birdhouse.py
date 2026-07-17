@@ -40,7 +40,8 @@ class BirdHouse(Boxes):
                 default=0.0, help=f"opening width or diameter on the {side} wall")
             self.argparser.add_argument(
                 f"--{side}_opening_height", action="store", type=float,
-                default=0.0, help=f"opening height on the {side} wall")
+                default=0.0,
+                help=f"opening height on the {side} wall (ignored for circles)")
         self.argparser.add_argument(
             "--perch_mode", action="store", type=str, default="none",
             choices=("none", "dowel", "ledge"),

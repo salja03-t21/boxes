@@ -163,6 +163,16 @@ def test_birdhouse_ledge_tab_uses_a_centered_material_thickness_slot() -> None:
     assert slots == [(70, 62.5, box.thickness, box.thickness)]
 
 
+def test_birdhouse_circle_opening_uses_width_as_its_only_dimension() -> None:
+    box = BirdHouse()
+    box.parseArgs([
+        "--front_opening_shape=circle", "--front_opening_width=32",
+        "--front_opening_height=80",
+    ])
+
+    assert box.openingDimensions("front", 140, 160) == ("circle", 32, 32)
+
+
 def test_universal_box_partial_cover_uses_finger_joint_side_edges() -> None:
     box = UniversalBox()
     box.parseArgs([
