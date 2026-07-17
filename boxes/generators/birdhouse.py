@@ -13,7 +13,22 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from dataclasses import dataclass
+import math
+from typing import Callable
+
+import rectpack
+from rectpack import newPacker, PackingBin
+
 from boxes import *
+
+
+@dataclass(frozen=True)
+class BirdHousePart:
+    name: str
+    width: float
+    height: float
+    render: Callable[[str | None], None]
 
 
 class BirdHouse(Boxes):
@@ -73,17 +88,23 @@ class BirdHouse(Boxes):
             "--sheet_width", action="store", type=float, default=600.0,
             help="maximum width used to pack BirdHouse cutouts")
 
+    def sideSize(self, x, h, edges="hfeffef"):
+        edges = [self.edges.get(e, e) for e in edges]
+        edges.append(edges[0])  # wrap around
+        tw = x + edges[1].spacing() + edges[-2].spacing()
+        th = (h + x / 2 + self.thickness + edges[0].spacing()
+              + max(edges[3].spacing(), edges[4].spacing()))
+        return tw, th
+
     def side(self, x, h, edges="hfeffef", callback=None, move=None):
         angles = (90, 0, 45, 90, 45, 0, 90)
         roof = 2**0.5 * x / 2
         t = self.thickness
         lengths = (x, h, t, roof, roof, t, h)
 
+        tw, th = self.sideSize(x, h, edges)
         edges = [self.edges.get(e, e) for e in edges]
         edges.append(edges[0])  # wrap around
-
-        tw = x + edges[1].spacing() + edges[-2].spacing()
-        th = h + x/2 + t + edges[0].spacing() + max(edges[3].spacing(), edges[4].spacing())
 
         if self.move(tw, th, move, True):
             return
@@ -96,12 +117,19 @@ class BirdHouse(Boxes):
 
         self.move(tw, th, move)
 
+    def roofSize(self, x, h, overhang, edges="eefe"):
+        edges = [self.edges.get(e, e) for e in edges]
+        tw = (x + 2 * self.thickness + 2 * overhang
+              + edges[1].spacing() + edges[3].spacing())
+        th = (h + 2 * self.thickness + overhang
+              + edges[0].spacing() + edges[2].spacing())
+        return tw, th
+
     def roof(self, x, h, overhang, edges="eefe", move=None):
         t = self.thickness
         edges = [self.edges.get(e, e) for e in edges]
 
-        tw = x + 2*t + 2*overhang + edges[1].spacing() + edges[3].spacing()
-        th = h + 2*t + overhang + edges[0].spacing() + edges[2].spacing()
+        tw, th = self.roofSize(x, h, overhang, edges)
 
         if self.move(tw, th, move, True):
             return
@@ -200,6 +228,20 @@ class BirdHouse(Boxes):
             shoulder, 90, depth, None,
         ]
 
+    def rectangularWallSize(self, x, y, edges="eeee"):
+        edges = [self.edges.get(edge, edge) for edge in edges]
+        return (
+            x + edges[3].spacing() + edges[1].spacing(),
+            y + edges[0].spacing() + edges[2].spacing(),
+        )
+
+    def ledgeSize(self, width, depth, tab):
+        borders = self._closePolygon(self.ledgeBorders(width, depth, tab))
+        minx, miny, maxx, maxy = self._polygonWallExtend(
+            borders, [self.edges["e"]]
+        )
+        return maxx - minx, maxy - miny
+
     def renderLedges(self, openings):
         if self.perch_mode != "ledge":
             return
@@ -210,22 +252,40 @@ class BirdHouse(Boxes):
                 self.ledgeBorders(width, depth, tab),
                 edge="e", move="up", label=f"{side} perch")
 
-    def packParts(self, parts):
+    def packParts(self, parts: list[BirdHousePart]):
         if self.sheet_width <= 0:
             raise ValueError("sheet width must be greater than zero")
-        x = y = row_height = 0
-        for width, height, render in parts:
-            if width > self.sheet_width:
-                raise ValueError("sheet width is too small for a BirdHouse cutout")
-            if x and x + width > self.sheet_width:
-                x = 0
-                y += row_height + self.spacing
-                row_height = 0
+
+        packer = newPacker(
+            rotation=True,
+            pack_algo=rectpack.MaxRectsBssf,
+            bin_algo=PackingBin.Global,
+            sort_algo=rectpack.SORT_AREA,
+        )
+        padded_sizes = {}
+        for index, part in enumerate(parts):
+            padded = part.width + self.spacing, part.height + self.spacing
+            padded_sizes[index] = padded
+            packer.add_rect(*padded, rid=index)
+        bin_height = sum(max(width, height) for width, height in padded_sizes.values())
+        packer.add_bin(self.sheet_width, bin_height)
+        packer.pack()
+
+        placements = sorted(packer.rect_list(), key=lambda placement: placement[5])
+        if len(placements) != len(parts):
+            raise ValueError("sheet width is too small for a BirdHouse cutout")
+
+        for _, x, y, packed_width, packed_height, index in placements:
+            part = parts[index]
+            original_width, original_height = padded_sizes[index]
+            rotated = (
+                math.isclose(packed_width, original_height)
+                and math.isclose(packed_height, original_width)
+                and not math.isclose(original_width, original_height)
+            )
             with self.saved_context():
                 self.moveTo(x, y)
-                render()
-            x += width + self.spacing
-            row_height = max(row_height, height)
+                part.render("rotated" if rotated else None)
 
     def render(self):
         x, y, h = self.x, self.y, self.h
@@ -246,29 +306,35 @@ class BirdHouse(Boxes):
             if dimensions is not None:
                 _, opening_width, opening_height = dimensions
                 openings.append((side, opening_width, opening_height))
-        side_width = x + 2 * self.thickness
-        side_height = h + x / 2 + 3 * self.thickness
-        roof_width = y + 2 * self.thickness + 2 * overhang
-        roof_height = roof + 2 * self.thickness + overhang
+        gable_size = self.sideSize(x, h)
+        wall_size = self.rectangularWallSize(y, h, "hFeF")
+        bottom_size = self.rectangularWallSize(x, y, "ffff")
+        roof_size = self.roofSize(y, roof, overhang, "eefe")
         parts = [
-            (side_width, side_height, lambda: self.side(x, h, callback=[front], move=None)),
-            (side_width, side_height, lambda: self.side(x, h, callback=[back], move=None)),
-            (y + 2 * self.thickness, h + 2 * self.thickness,
-             lambda: self.rectangularWall(y, h, "hFeF", callback=[left], move=None)),
-            (y + 2 * self.thickness, h + 2 * self.thickness,
-             lambda: self.rectangularWall(y, h, "hFeF", callback=[right], move=None)),
-            (x + 2 * self.thickness, y + 2 * self.thickness,
-             lambda: self.rectangularWall(x, y, "ffff", move=None)),
-            (roof_width, roof_height, lambda: self.roof(y, roof, overhang, "eefe", move=None)),
-            (roof_width, roof_height, lambda: self.roof(y, roof, overhang, "eeFe", move=None)),
+            BirdHousePart("front", *gable_size,
+                          lambda move: self.side(x, h, callback=[front], move=move)),
+            BirdHousePart("back", *gable_size,
+                          lambda move: self.side(x, h, callback=[back], move=move)),
+            BirdHousePart("left", *wall_size,
+                          lambda move: self.rectangularWall(
+                              y, h, "hFeF", callback=[left], move=move)),
+            BirdHousePart("right", *wall_size,
+                          lambda move: self.rectangularWall(
+                              y, h, "hFeF", callback=[right], move=move)),
+            BirdHousePart("bottom", *bottom_size,
+                          lambda move: self.rectangularWall(x, y, "ffff", move=move)),
+            BirdHousePart("roof left", *roof_size,
+                          lambda move: self.roof(y, roof, overhang, "eefe", move=move)),
+            BirdHousePart("roof right", *roof_size,
+                          lambda move: self.roof(y, roof, overhang, "eeFe", move=move)),
         ]
         for side, opening_width, opening_height in openings:
             width, depth = self.ledgeDimensions(opening_width, opening_height)
             tab = self.ledgeTabWidth(width)
-            parts.append((width, depth + self.thickness,
-                          lambda side=side, width=width, depth=depth, tab=tab:
-                          self.polygonWall(
-                              self.ledgeBorders(width, depth, tab),
-                              edge="e", move=None,
-                              label=f"{side} perch")))
+            parts.append(BirdHousePart(
+                f"{side} perch", *self.ledgeSize(width, depth, tab),
+                lambda move, side=side, width=width, depth=depth, tab=tab:
+                self.polygonWall(
+                    self.ledgeBorders(width, depth, tab),
+                    edge="e", move=move, label=f"{side} perch")))
         self.packParts(parts)

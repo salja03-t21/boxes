@@ -5,6 +5,7 @@ from io import BytesIO
 
 import pytest
 from lxml import etree
+from svgpathtools import parse_path
 
 from boxes.generators.birdhouse import BirdHouse
 
@@ -34,6 +35,41 @@ def render_birdhouse(*, enabled: tuple[str, ...], perch_mode: str = "ledge") -> 
 def svg_text(svg: bytes) -> set[str]:
     root = etree.fromstring(svg)
     return {text for text in root.itertext() if text.strip()}
+
+
+def physical_part_bboxes(svg: bytes) -> list[tuple[float, float, float, float]]:
+    root = etree.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    bboxes = []
+    for group in root.xpath("./svg:g", namespaces=namespace):
+        if any("burn:" in text for text in group.itertext()):
+            continue
+        path_bboxes = [
+            parse_path(path.get("d", "")).bbox()
+            for path in group.xpath(".//svg:path", namespaces=namespace)
+            if path.get("d")
+        ]
+        if not path_bboxes:
+            continue
+        bboxes.append((
+            min(box[0] for box in path_bboxes),
+            min(box[2] for box in path_bboxes),
+            max(box[1] for box in path_bboxes),
+            max(box[3] for box in path_bboxes),
+        ))
+    return bboxes
+
+
+def assert_part_spacing(
+    bboxes: list[tuple[float, float, float, float]], minimum: float
+) -> None:
+    for index, first in enumerate(bboxes):
+        for second in bboxes[index + 1:]:
+            horizontal_gap = max(second[0] - first[2], first[0] - second[2], 0)
+            vertical_gap = max(second[1] - first[3], first[1] - second[3], 0)
+            assert horizontal_gap >= minimum or vertical_gap >= minimum, (
+                f"part bounds overlap or violate spacing: {first}, {second}"
+            )
 
 
 def polygon_vertices(borders: list[float | None]) -> list[tuple[float, float]]:
@@ -78,3 +114,11 @@ def test_ledge_parts_exist_only_for_enabled_openings(enabled: tuple[str, ...]) -
     assert {text for text in svg_text(svg) if text.endswith(" perch")} == {
         f"{side} perch" for side in enabled
     }
+
+
+def test_four_opening_layout_has_no_overlaps_and_respects_sheet_width() -> None:
+    bboxes = physical_part_bboxes(render_birdhouse(enabled=SIDES))
+
+    assert len(bboxes) == 11
+    assert_part_spacing(bboxes, minimum=1.25)
+    assert max(box[2] for box in bboxes) - min(box[0] for box in bboxes) <= 600
