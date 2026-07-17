@@ -192,6 +192,14 @@ class BirdHouse(Boxes):
             raise ValueError("ledge tab width must be greater than zero and smaller than ledge width")
         return tab_width
 
+    def ledgeBorders(self, width, depth, tab):
+        shoulder = (width - tab) / 2
+        return [
+            width, 90, depth, 90, shoulder, -90,
+            self.thickness, 90, tab, 90, self.thickness, -90,
+            shoulder, 90, depth, None,
+        ]
+
     def renderLedges(self, openings):
         if self.perch_mode != "ledge":
             return
@@ -199,9 +207,7 @@ class BirdHouse(Boxes):
             width, depth = self.ledgeDimensions(opening_width, opening_height)
             tab = self.ledgeTabWidth(width)
             self.polygonWall(
-                [width, 90, depth, 90, (width - tab) / 2, -90,
-                 self.thickness, 90, tab, 90, self.thickness, -90, (width - tab) / 2,
-                 -90, depth, None],
+                self.ledgeBorders(width, depth, tab),
                 edge="e", move="up", label=f"integrated perch {side} tab")
 
     def packParts(self, parts):
@@ -262,9 +268,7 @@ class BirdHouse(Boxes):
             parts.append((width, depth + self.thickness,
                           lambda side=side, width=width, depth=depth, tab=tab:
                           self.polygonWall(
-                              [width, 90, depth, 90, (width - tab) / 2, -90,
-                               self.thickness, 90, tab, 90, self.thickness, -90,
-                               (width - tab) / 2, -90, depth, None],
+                              self.ledgeBorders(width, depth, tab),
                               edge="e", move=None,
                               label=f"integrated perch {side} tab")))
         self.packParts(parts)
