@@ -43,6 +43,15 @@ An opening shape of ``none`` disables both the wall opening and its associated
 perch. Separate ledge parts are generated only when ``perch_mode=ledge``;
 ``none`` and ``dowel`` never add spare ledge cutouts.
 
+``perch_clearance_mode=auto`` leaves a 10 mm gap between the bottom edge of
+each opening and the nearest edge of its perch mount. For a dowel this is the
+top edge of the circular hole; for a ledge it is the top edge of the
+through-tab slot. Select ``manual`` and set ``perch_clearance`` to use an exact
+gap in millimetres, for example ``perch_clearance=17``. The shared setting
+applies independently below every enabled opening, so changing an opening's
+height preserves the requested clearance. A clearance that would move a mount
+outside its wall is rejected.
+
 For ledges, select ``perch_size_mode=auto`` to derive proportions from the
 opening and material thickness, or ``manual`` and provide positive
 ``perch_ledge_width`` and ``perch_ledge_depth`` values. Each ledge has a

@@ -168,7 +168,7 @@ def test_birdhouse_ledge_slot_matches_the_proportional_tab_width() -> None:
     assert callback is not None
     callback()
 
-    assert slots == [(70, 62.5, 10, box.thickness)]
+    assert slots == [(70, 52.5, 10, box.thickness)]
 
 
 def test_birdhouse_circle_opening_uses_width_as_its_only_dimension() -> None:
