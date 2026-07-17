@@ -15,7 +15,7 @@
 
 from dataclasses import dataclass
 import math
-from typing import Callable
+from collections.abc import Callable
 
 import rectpack
 from rectpack import newPacker, PackingBin
@@ -35,6 +35,7 @@ class BirdHouse(Boxes):
     """Simple Bird House"""
 
     ui_group = "Misc"
+    sheet_width: float
 
     def __init__(self) -> None:
         Boxes.__init__(self)
