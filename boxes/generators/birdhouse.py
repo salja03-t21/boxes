@@ -155,7 +155,7 @@ class BirdHouse(Boxes):
                 self.rectangularHole(x, y, opening_width, opening_height,
                                      r=min(opening_width, opening_height) / 2)
             self.perchMount(x, y, opening_height)
-            self.ledgeMount(x, y, opening_height)
+            self.ledgeMount(x, y, opening_width, opening_height)
 
         return callback
 
@@ -168,12 +168,13 @@ class BirdHouse(Boxes):
                       opening_y - opening_height / 2 - self.thickness - self.perch_diameter / 2)
         self.hole(x, perch_y, d=self.perch_diameter)
 
-    def ledgeMount(self, x, opening_y, opening_height):
+    def ledgeMount(self, x, opening_y, opening_width, opening_height):
         if self.perch_mode != "ledge":
             return
         t = self.thickness
         ledge_y = max(t / 2, opening_y - opening_height / 2 - t / 2)
-        self.rectangularHole(x, ledge_y, t, t)
+        ledge_width, _ = self.ledgeDimensions(opening_width, opening_height)
+        self.rectangularHole(x, ledge_y, self.ledgeTabWidth(ledge_width), t)
 
     def ledgeDimensions(self, opening_width, opening_height):
         if self.perch_size_mode == "auto":

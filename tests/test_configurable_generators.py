@@ -152,15 +152,23 @@ def test_birdhouse_rejects_invalid_manual_ledge_size() -> None:
         )
 
 
-def test_birdhouse_ledge_tab_uses_a_centered_material_thickness_slot() -> None:
+def test_birdhouse_ledge_slot_matches_the_proportional_tab_width() -> None:
     box = BirdHouse()
-    box.parseArgs(["--perch_mode=ledge"])
+    box.parseArgs([
+        "--front_opening_shape=circle", "--front_opening_width=32",
+        "--perch_mode=ledge", "--perch_size_mode=manual",
+        "--perch_ledge_width=30", "--perch_ledge_depth=30",
+        "--perch_ledge_tab_width_mode=auto",
+    ])
     slots: list[tuple[float, float, float, float]] = []
+    box.hole = lambda *args, **kwargs: None
     box.rectangularHole = lambda x, y, dx, dy: slots.append((x, y, dx, dy))
 
-    box.ledgeMount(70, 80, 32)
+    callback = box.openingCallback("front", 140, 160)
+    assert callback is not None
+    callback()
 
-    assert slots == [(70, 62.5, box.thickness, box.thickness)]
+    assert slots == [(70, 62.5, 10, box.thickness)]
 
 
 def test_birdhouse_circle_opening_uses_width_as_its_only_dimension() -> None:
