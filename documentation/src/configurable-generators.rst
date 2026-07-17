@@ -16,9 +16,10 @@ Set ``top_edge`` to ``e`` and choose one of these cover modes:
 millimetre dimension. The default is 33.3 percent. ``cover_position`` chooses
 ``front`` or ``back``.
 
-The SVG includes the cover and two support rails. Glue the rails beneath the
-cover, against the inside faces of the two side walls, then glue the assembly
-at the selected end of the box.
+The cover uses the generator's finger-joint settings along its two side edges.
+Matching finger slots are cut into the upper sections of both side walls at the
+selected end, making the cover self-locating. Glue the fitted joints for final
+strength.
 
 BirdHouse openings and perches
 ------------------------------
@@ -26,9 +27,10 @@ BirdHouse openings and perches
 BirdHouse exposes opening controls for ``front``, ``back``, ``left``, and
 ``right`` independently. For each side select ``<side>_opening_shape`` as
 ``none``, ``circle``, ``rectangle``, or ``oval``. Use the matching width and
-height fields to set the size; circles use width as their diameter. A zero
-dimension preserves the original automatic proportion for a rectangular
-opening. Openings remain centred on their wall.
+height fields to set the size; circles use width as their diameter and ignore
+the corresponding height field. A zero dimension preserves the original
+automatic proportion for a rectangular opening. Openings remain centred on
+their wall.
 
 ``perch_mode`` applies the same choice below every enabled opening:
 
@@ -39,5 +41,6 @@ opening. Openings remain centred on their wall.
 
 For ledges, select ``perch_size_mode=auto`` to derive proportions from the
 opening and material thickness, or ``manual`` and provide positive
-``perch_ledge_width`` and ``perch_ledge_depth`` values. Glue each generated
-ledge directly below its matching opening.
+``perch_ledge_width`` and ``perch_ledge_depth`` values. Each ledge has a
+centered through-tab that fits a matching slot below its opening, keeping the
+ledge square during assembly. Glue the fitted joint for final strength.

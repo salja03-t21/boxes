@@ -40,7 +40,8 @@ class BirdHouse(Boxes):
                 default=0.0, help=f"opening width or diameter on the {side} wall")
             self.argparser.add_argument(
                 f"--{side}_opening_height", action="store", type=float,
-                default=0.0, help=f"opening height on the {side} wall")
+                default=0.0,
+                help=f"opening height on the {side} wall (ignored for circles)")
         self.argparser.add_argument(
             "--perch_mode", action="store", type=str, default="none",
             choices=("none", "dowel", "ledge"),
@@ -144,6 +145,7 @@ class BirdHouse(Boxes):
                 self.rectangularHole(x, y, opening_width, opening_height,
                                      r=min(opening_width, opening_height) / 2)
             self.perchMount(x, y, opening_height)
+            self.ledgeMount(x, y, opening_height)
 
         return callback
 
@@ -155,6 +157,13 @@ class BirdHouse(Boxes):
         perch_y = max(self.thickness + self.perch_diameter / 2,
                       opening_y - opening_height / 2 - self.thickness - self.perch_diameter / 2)
         self.hole(x, perch_y, d=self.perch_diameter)
+
+    def ledgeMount(self, x, opening_y, opening_height):
+        if self.perch_mode != "ledge":
+            return
+        t = self.thickness
+        ledge_y = max(t / 2, opening_y - opening_height / 2 - t / 2)
+        self.rectangularHole(x, ledge_y, t, t)
 
     def ledgeDimensions(self, opening_width, opening_height):
         if self.perch_size_mode == "auto":
@@ -168,8 +177,12 @@ class BirdHouse(Boxes):
             return
         for side, opening_width, opening_height in openings:
             width, depth = self.ledgeDimensions(opening_width, opening_height)
-            self.rectangularWall(width, depth, "eeee", move="up",
-                                 label=f"integrated perch {side}")
+            tab = self.thickness
+            self.polygonWall(
+                [width, 90, depth, 90, (width - tab) / 2, -90,
+                 tab, 90, tab, 90, tab, -90, (width - tab) / 2,
+                 -90, depth, None],
+                edge="e", move="up", label=f"integrated perch {side} tab")
 
     def render(self):
         x, y, h = self.x, self.y, self.h
