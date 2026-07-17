@@ -25,7 +25,7 @@ geometry and the ledge's centered tab geometry. Add a paired assertion that
 
 **Step 2: Run test to verify it fails**
 
-Run: `/Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py -k ledge_tab`
+Run: `PYTHONPATH="$PWD" /Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py -k ledge_tab`
 
 Expected: FAIL because current ledges are plain rectangles and no wall slot is
 cut.
@@ -64,7 +64,7 @@ legacy "partial cover support" rails.
 
 **Step 2: Run test to verify it fails**
 
-Run: `/Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py -k cover_tabs`
+Run: `PYTHONPATH="$PWD" /Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py -k cover_tabs`
 
 Expected: FAIL because the current output still contains two support rails.
 
@@ -104,7 +104,7 @@ behavior.
 
 **Step 2: Run test to verify it fails**
 
-Run: `/Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py -k circle_height`
+Run: `PYTHONPATH="$PWD" /Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py -k circle_height`
 
 Expected: FAIL because no explicit behavioral regression test exists.
 
@@ -134,15 +134,19 @@ git commit -m "docs: clarify circular birdhouse opening dimensions"
 
 **Step 1: Run focused generator tests**
 
-Run: `/Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py`
+Run: `PYTHONPATH="$PWD" /Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q tests/test_configurable_generators.py`
 
 Expected: PASS.
 
 **Step 2: Run full regression suite**
 
-Run: `/Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q`
+Run: `PYTHONPATH="$PWD" /Users/jamessalmon/.config/superpowers/worktrees/boxes/partial-cover-birdhouse/.venv/bin/pytest -q`
 
 Expected: PASS with any known skips reported.
+
+The reusable virtual environment is an editable install of the earlier
+worktree. Prefix every test invocation with `PYTHONPATH="$PWD"` so imports
+resolve to the current worktree rather than silently testing the prior branch.
 
 **Step 3: Build documentation**
 
